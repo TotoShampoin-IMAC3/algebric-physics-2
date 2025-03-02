@@ -1,3 +1,7 @@
+// DO NOT REMOVE
+// This file is there because glfwpp needs it for std::exchange
+#include <utility>
+
 #include "gl/helper.hpp"
 #include "gl/mesh.hpp"
 #include "gl/shaders.hpp"
