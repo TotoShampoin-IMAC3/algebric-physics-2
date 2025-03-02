@@ -1,6 +1,7 @@
 #include "shaders.hpp"
 #include <glm/gtc/type_ptr.hpp>
 #include <stdexcept>
+#include <variant>
 
 Shader::Shader(GLenum type, const std::string& source)
     : Shader(type) {
@@ -99,13 +100,26 @@ Program& Program::link() {
     return *this;
 }
 
-void Program::use() const noexcept {
+Program& Program::use() noexcept {
     glUseProgram(_id);
+    return *this;
 }
 
 UniformLocation Program::getUniformLocation(const std::string& name
 ) const noexcept {
     return UniformLocation(_id, name);
+}
+
+Program& Program::setUniform(
+    const std::string& name, const UniformValue& value
+) noexcept {
+    if (_uniforms.find(name) == _uniforms.end()) {
+        _uniforms.emplace(name, getUniformLocation(name));
+    }
+    std::visit(
+        [&](const auto& value) { _uniforms.at(name).set(value); }, value
+    );
+    return *this;
 }
 
 UniformLocation::UniformLocation(

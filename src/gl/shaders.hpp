@@ -3,6 +3,8 @@
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <string>
+#include <unordered_map>
+#include <variant>
 
 class Shader {
 public:
@@ -45,6 +47,9 @@ private:
     GLuint _program;
     GLint _location;
 };
+using UniformValue = std::variant<
+    GLfloat, GLint, GLuint, glm::vec2, glm::vec3, glm::vec4, glm::mat2,
+    glm::mat3, glm::mat4>;
 
 class Program {
 public:
@@ -57,13 +62,19 @@ public:
     Program& attachShader(const Shader& shader) noexcept;
     Program& link();
 
-    void use() const noexcept;
+    Program& use() noexcept;
     UniformLocation getUniformLocation(const std::string& name) const noexcept;
+
+    Program& setUniform(
+        const std::string& name, const UniformValue& value
+    ) noexcept;
 
     GLuint id() const noexcept { return _id; }
 
 private:
     GLuint _id;
+
+    std::unordered_map<std::string, UniformLocation> _uniforms;
 
     Program(const Program&) = delete;
     Program& operator=(const Program&) = delete;
