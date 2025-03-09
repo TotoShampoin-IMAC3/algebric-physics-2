@@ -17,5 +17,10 @@ void main() {
     float a =
         mix(0.5, 0.15, smoothstep(0.02, 0.03, dx) * smoothstep(0.02, 0.03, dy));
 
-    FragColor = vec4(color, a);
+    vec3 c = color;
+    if (!gl_FrontFacing) {
+        c *= 0.25f;
+    }
+
+    FragColor = vec4(c, a);
 }
