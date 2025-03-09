@@ -9,6 +9,7 @@
 #include "rendering/Displayator.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <klein/klein.hpp>
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -17,6 +18,7 @@
 int main(int argc, const char* argv[]) {
     auto GLFW = glfw::init();
     glfw::Window window(800, 600, "Hello World");
+    float width = 800, height = 600;
 
     glfw::makeContextCurrent(window);
     gladLoadGLLoader((GLADloadproc)glfw::getProcAddress);
@@ -24,15 +26,20 @@ int main(int argc, const char* argv[]) {
     Displayator displayator;
 
     OrbitCamera camera;
+    camera.sensitivity = 5.f / width;
 
     float angle = 0.0f;
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
-    window.framebufferSizeEvent.setCallback([&](glfw::Window&, int width,
-                                                int height) {
-        glViewport(0, 0, width, height);
-    });
+    window.framebufferSizeEvent.setCallback( //
+        [&](glfw::Window&, int _width, int _height) {
+            width = static_cast<float>(_width);
+            height = static_cast<float>(_height);
+            camera.sensitivity = 5.f / _width;
+            glViewport(0, 0, _width, _height);
+        }
+    );
 
     bool isHolding = false;
     window.mouseButtonEvent.setCallback(
@@ -63,13 +70,7 @@ int main(int argc, const char* argv[]) {
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 450");
 
-    displayator
-        .setProjection(
-            glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f)
-        )
-        .setPointSize(0.20f)
-        .setLineWidth(0.02f)
-        .setPlaneSize(10.0f);
+    displayator.setPointSize(0.20f).setLineWidth(0.02f).setPlaneSize(10.0f);
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
@@ -88,28 +89,23 @@ int main(int argc, const char* argv[]) {
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // glm::mat4 view = glm::lookAt(
-        //     glm::vec3(glm::cos(angle) * 5.0f, 2.0f, glm::sin(angle) * 5.0f),
-        //     glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)
-        // );
-
-        // displayator.setView(view);
-        displayator.setView(camera.view());
-        displayator.setColor({1.0f, 0.0f, 0.0f})
-            .drawLine({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f})
-            .drawPoint({1.0f, 0.0f, 0.0f})
-            .drawPoint({-1.0f, 0.0f, 0.0f});
-        displayator.setColor({0.0f, 1.0f, 0.0f})
-            .drawLine({0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f})
-            .drawPoint({0.0f, 1.0f, 0.0f})
-            .drawPoint({0.0f, -1.0f, 0.0f});
-        displayator.setColor({0.0f, 0.0f, 1.0f})
-            .drawLine({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f})
-            .drawPoint({0.0f, 0.0f, 1.0f})
-            .drawPoint({0.0f, 0.0f, -1.0f});
-
-        displayator.setColor({1.0f, 1.0f, 1.0f})
-            .drawPlane({0.0f, 0.0f, 0.0f}, {0.1f, 1.0f, 0.0f});
+        displayator
+            .setProjection(glm::radians(45.0f), width / height, 0.1f, 100.0f)
+            .setView(camera.view());
+        displayator.setColor(glm::vec3(1, 0, 0))
+            .drawLine(kln::point(0, 0, 0) & kln::point(1, 0, 0), 1)
+            .drawPoint(kln::point(1, 0, 0))
+            .drawPoint(kln::point(-1, 0, 0));
+        displayator.setColor(glm::vec3(0, 1, 0))
+            .drawLine(kln::point(0, 0, 0) & kln::point(0, 1, 0), 1)
+            .drawPoint(kln::point(0, 1, 0))
+            .drawPoint(kln::point(0, -1, 0));
+        displayator.setColor(glm::vec3(0, 0, 1))
+            .drawLine(kln::point(0, 0, 0) & kln::point(0, 0, 1), 1)
+            .drawPoint(kln::point(0, 0, 1))
+            .drawPoint(kln::point(0, 0, -1));
+        displayator.setColor(glm::vec3(1, 1, 1))
+            .drawPlane(kln::plane(.1, 1, 0, 0));
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();

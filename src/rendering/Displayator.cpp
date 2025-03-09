@@ -1,5 +1,11 @@
 #include "Displayator.hpp"
+#include "../utils/types.hpp"
 #include "gl/helper.hpp"
+#include "glm/ext/matrix_clip_space.hpp"
+#include "klein/line.hpp"
+#include "klein/plane.hpp"
+#include "klein/point.hpp"
+#include "klein/translator.hpp"
 
 Shader& basicFrag() {
     static auto shader = loadShader(GL_FRAGMENT_SHADER, "res/basic.frag");
@@ -74,6 +80,29 @@ Displayator& Displayator::drawPlane(
     return *this;
 }
 
+// TODO: Test these
+
+Displayator& Displayator::drawPoint(const kln::point& point) {
+    return drawPoint(pointToVec(point));
+}
+
+Displayator& Displayator::drawLine(
+    const kln::line& line, float length, const kln::point& from,
+    bool doubleSided
+) {
+    auto fromP = (from | line) ^ line;
+    auto T = kln::translator(-length, line.e23(), line.e31(), line.e12());
+    auto start = doubleSided ? -T(fromP) : fromP;
+    auto end = T(fromP);
+    return drawLine(pointToVec(start), pointToVec(end));
+}
+
+Displayator& Displayator::drawPlane(const kln::plane& plane) {
+    auto position = (kln::origin() | plane) ^ plane;
+    auto normal = kln::point(plane.e1(), plane.e2(), plane.e3());
+    return drawPlane(pointToVec(position), pointToVec(normal));
+}
+
 Displayator& Displayator::setView(const glm::mat4& view) {
     this->_view = view;
     return *this;
@@ -81,6 +110,13 @@ Displayator& Displayator::setView(const glm::mat4& view) {
 
 Displayator& Displayator::setProjection(const glm::mat4& projection) {
     this->_projection = projection;
+    return *this;
+}
+
+Displayator& Displayator::setProjection(
+    float fov, float aspect, float near, float far
+) {
+    this->_projection = glm::perspective(fov, aspect, near, far);
     return *this;
 }
 

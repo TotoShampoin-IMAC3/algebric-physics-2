@@ -1,4 +1,8 @@
 #pragma once
 
-#include <gl/mesh.hpp>
-#include <gl/shaders.hpp>
+/* Basic rendering engine using OpenGL */
+
+#include "mesh.hpp"
+#include "shaders.hpp"
+
+#include "helper.hpp"
