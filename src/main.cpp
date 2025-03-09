@@ -1,10 +1,12 @@
 // DO NOT REMOVE
 // This file is there because glfwpp needs it for std::exchange
 #include <utility>
+#include <vector>
 
 #define GLFW_INCLUDE_NONE
 #include <glfwpp/glfwpp.h>
 
+#include "physics/physics.hpp"
 #include "rendering/Camera.hpp"
 #include "rendering/Displayator.hpp"
 
@@ -15,33 +17,58 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
+const float WIDTH = 800.f;
+const float HEIGHT = 600.f;
+
+const size_t N = 50;
+const float KNOT = .1f;
+const float STIFF = 1000.f;
+const float MASS = 0.1f;
+
+const float SIZE = 0.05f;
+
 int main(int argc, const char* argv[]) {
     auto GLFW = glfw::init();
-    glfw::Window window(800, 600, "Hello World");
-    float width = 800, height = 600;
+    glfw::Window window(WIDTH, HEIGHT, "Hello World");
 
     glfw::makeContextCurrent(window);
     gladLoadGLLoader((GLADloadproc)glfw::getProcAddress);
 
     Displayator displayator;
+    displayator.setProjection(
+        glm::radians(45.0f), WIDTH / HEIGHT, 0.1f, 100.0f
+    );
 
     OrbitCamera camera;
-    camera.sensitivity = 5.f / width;
+    camera.sensitivity = 5.f / WIDTH;
 
     float angle = 0.0f;
+    bool isHolding = false;
+
+    std::vector<Particle> particles;
+    Wall ground {kln::plane(0, 1, 0, 5), 100.f};
+    ConstantForce gravity {kln::translator(10.f, 0, -1, 0)};
+    Viscosity viscosity {0.25f};
+    Spring spring {KNOT, STIFF};
+
+    for (int i = 0; i < N; i++) {
+        particles.emplace_back(kln::point((i - int(N / 2)) * KNOT, 0, 0), MASS);
+    }
+    particles[0].lock = true;
+    particles[N - 1].lock = true;
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
-    window.framebufferSizeEvent.setCallback( //
-        [&](glfw::Window&, int _width, int _height) {
-            width = static_cast<float>(_width);
-            height = static_cast<float>(_height);
-            camera.sensitivity = 5.f / _width;
-            glViewport(0, 0, _width, _height);
-        }
-    );
-
-    bool isHolding = false;
+    window.framebufferSizeEvent.setCallback([&](glfw::Window&, int width,
+                                                int height) {
+        float widthf = static_cast<float>(width);
+        float heightf = static_cast<float>(height);
+        camera.sensitivity = 5.f / widthf;
+        displayator.setProjection(
+            glm::radians(45.0f), widthf / heightf, 0.1f, 100.0f
+        );
+        glViewport(0, 0, width, height);
+    });
     window.mouseButtonEvent.setCallback(
         [&](glfw::Window&, glfw::MouseButton button,
             glfw::MouseButtonState action, glfw::ModifierKeyBit) {
@@ -70,42 +97,36 @@ int main(int argc, const char* argv[]) {
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 450");
 
-    displayator.setPointSize(0.20f).setLineWidth(0.02f).setPlaneSize(10.0f);
-
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glDepthFunc(GL_LEQUAL);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    double start = glfw::getTime();
-    double last = start;
+    Time time;
     while (!window.shouldClose()) {
-        double now = glfw::getTime();
-        double delta = now - last;
-        double elapsed = now - start;
-        last = now;
-
-        angle += delta;
+        angle += time.deltaTime();
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        displayator
-            .setProjection(glm::radians(45.0f), width / height, 0.1f, 100.0f)
-            .setView(camera.view());
-        displayator.setColor(glm::vec3(1, 0, 0))
-            .drawLine(kln::point(0, 0, 0) & kln::point(1, 0, 0), 1)
-            .drawPoint(kln::point(1, 0, 0))
-            .drawPoint(kln::point(-1, 0, 0));
-        displayator.setColor(glm::vec3(0, 1, 0))
-            .drawLine(kln::point(0, 0, 0) & kln::point(0, 1, 0), 1)
-            .drawPoint(kln::point(0, 1, 0))
-            .drawPoint(kln::point(0, -1, 0));
-        displayator.setColor(glm::vec3(0, 0, 1))
-            .drawLine(kln::point(0, 0, 0) & kln::point(0, 0, 1), 1)
-            .drawPoint(kln::point(0, 0, 1))
-            .drawPoint(kln::point(0, 0, -1));
-        displayator.setColor(glm::vec3(1, 1, 1))
-            .drawPlane(kln::plane(.1, 1, 0, 0));
+        displayator.setView(camera.view());
+
+        displayator.setColor({1, 1, 1});
+        displayator.setPlaneSize(10.0f).drawPlane(ground.wall);
+        displayator.setPointSize(SIZE).setLineWidth(SIZE);
+        for (int i = 0; i < N - 1; i++) {
+            spring.applyForce(time.deltaTime(), particles[i], particles[i + 1]);
+            displayator.drawLine(
+                particles[i].position, particles[i + 1].position
+            );
+        }
+        for (auto& particle : particles) {
+            gravity.applyForce(time.deltaTime(), particle);
+            ground.applyForce(time.deltaTime(), particle);
+            viscosity.applyForce(time.deltaTime(), particle);
+
+            particle.update(time.deltaTime());
+            displayator.drawPoint(particle.position);
+        }
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -117,6 +138,7 @@ int main(int argc, const char* argv[]) {
 
         glfw::pollEvents();
         window.swapBuffers();
+        time.tick();
     }
 
     return 0;

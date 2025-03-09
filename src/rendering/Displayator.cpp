@@ -87,6 +87,12 @@ Displayator& Displayator::drawPoint(const kln::point& point) {
 }
 
 Displayator& Displayator::drawLine(
+    const kln::point& start, const kln::point& end
+) {
+    return drawLine(pointToVec(start), pointToVec(end));
+}
+
+Displayator& Displayator::drawLine(
     const kln::line& line, float length, const kln::point& from,
     bool doubleSided
 ) {
@@ -94,7 +100,7 @@ Displayator& Displayator::drawLine(
     auto T = kln::translator(-length, line.e23(), line.e31(), line.e12());
     auto start = doubleSided ? -T(fromP) : fromP;
     auto end = T(fromP);
-    return drawLine(pointToVec(start), pointToVec(end));
+    return drawLine(start, end);
 }
 
 Displayator& Displayator::drawPlane(const kln::plane& plane) {

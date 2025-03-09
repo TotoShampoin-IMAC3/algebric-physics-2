@@ -15,6 +15,7 @@ public:
     Displayator& drawPlane(const glm::vec3& position, const glm::vec3& normal);
 
     Displayator& drawPoint(const kln::point& point);
+    Displayator& drawLine(const kln::point& start, const kln::point& end);
     Displayator& drawLine(
         const kln::line& line, float length = 1000.f,
         const kln::point& from = kln::origin(), bool doubleSided = false
