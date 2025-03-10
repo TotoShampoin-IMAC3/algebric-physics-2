@@ -22,6 +22,11 @@ public:
     );
     Displayator& drawPlane(const kln::plane& plane);
 
+    Displayator& drawPoints(const std::vector<glm::vec3>& positions);
+    Displayator& drawLines(
+        const std::vector<glm::vec3>& starts, const std::vector<glm::vec3>& ends
+    );
+
     Displayator& setView(const glm::mat4& view);
     Displayator& setProjection(const glm::mat4& projection);
     Displayator& setProjection(float fov, float aspect, float near, float far);

@@ -69,18 +69,16 @@ Displayator& Displayator::drawLine(
 Displayator& Displayator::drawPlane(
     const glm::vec3& position, const glm::vec3& normal
 ) {
-    _planeShader.use();
-    _planeShader.setUniform("color", _color);
-    _planeShader.setUniform("position", position);
-    _planeShader.setUniform("normal", normal);
-    _planeShader.setUniform("size", _planeSize);
-    _planeShader.setUniform("view", _view);
-    _planeShader.setUniform("projection", _projection);
+    _planeShader.use()
+        .setUniform("color", _color)
+        .setUniform("position", position)
+        .setUniform("normal", normal)
+        .setUniform("size", _planeSize)
+        .setUniform("view", _view)
+        .setUniform("projection", _projection);
     _quadMesh.bind().draw().unbind();
     return *this;
 }
-
-// TODO: Test these
 
 Displayator& Displayator::drawPoint(const kln::point& point) {
     return drawPoint(pointToVec(point));
@@ -107,6 +105,39 @@ Displayator& Displayator::drawPlane(const kln::plane& plane) {
     auto position = (kln::origin() | plane) ^ plane;
     auto normal = kln::point(plane.e1(), plane.e2(), plane.e3());
     return drawPlane(pointToVec(position), pointToVec(normal));
+}
+
+Displayator& Displayator::drawPoints(const std::vector<glm::vec3>& positions) {
+    _pointShader.use()
+        .setUniform("color", _color)
+        .setUniform("size", _pointSize)
+        .setUniform("view", _view)
+        .setUniform("projection", _projection);
+    _quadMesh.bind();
+    for (const auto& position : positions) {
+        _pointShader.setUniform("point", position);
+        _quadMesh.draw();
+    }
+    _quadMesh.unbind();
+    return *this;
+}
+
+Displayator& Displayator::drawLines(
+    const std::vector<glm::vec3>& starts, const std::vector<glm::vec3>& ends
+) {
+    _lineShader.use()
+        .setUniform("color", _color)
+        .setUniform("width", _lineWidth)
+        .setUniform("view", _view)
+        .setUniform("projection", _projection);
+    _quadMesh.bind();
+    for (size_t i = 0; i < starts.size(); i++) {
+        _lineShader.setUniform("start", starts[i]);
+        _lineShader.setUniform("end", ends[i]);
+        _quadMesh.draw();
+    }
+    _quadMesh.unbind();
+    return *this;
 }
 
 Displayator& Displayator::setView(const glm::mat4& view) {
