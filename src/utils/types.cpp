@@ -14,5 +14,7 @@ kln::translator pointToTranslator(const kln::point& p) {
     auto l = (p & kln::origin()).norm();
     if (l == 0)
         return {};
-    return kln::translator(l, p.x(), p.y(), p.z());
+    auto pn = p / l;
+    auto res = kln::translator(l, pn.x(), pn.y(), pn.z());
+    return res;
 }

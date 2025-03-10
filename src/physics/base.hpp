@@ -22,13 +22,12 @@ public:
         position = (velocity * static_cast<float>(deltaTime))(position);
     }
     void applyForce(const kln::translator& _force, const Second& deltaTime) {
-        velocity += _force * static_cast<float>(deltaTime);
+        auto df = _force * static_cast<float>(deltaTime);
+        velocity = velocity * df;
     }
-    void prepareForce(const kln::translator& _force, const Second& deltaTime) {
-        force += _force * static_cast<float>(deltaTime);
-    }
-    void updateForce() {
-        velocity += force;
+    void prepareForce(const kln::translator& _force) { force += _force; }
+    void updateForce(const Second& deltaTime) {
+        velocity += force * static_cast<float>(deltaTime);
         force = {};
     }
 };
@@ -39,4 +38,7 @@ public:
     virtual void applyForce(
         const Second& deltaTime, Particle& p1, Particle& p2
     ) = 0;
+
+    virtual void prepareForce(Particle& p1) = 0;
+    virtual void prepareForce(Particle& p1, Particle& p2) = 0;
 };

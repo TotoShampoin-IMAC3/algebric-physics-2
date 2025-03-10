@@ -3,6 +3,11 @@
 #include <glm/glm.hpp>
 
 struct OrbitCamera {
+    OrbitCamera(float distance = 5.0f, float pitch = 0.0f, float yaw = 0.0f)
+        : distance(distance),
+          pitch(pitch),
+          yaw(yaw) {}
+
     glm::mat4 view() const;
 
     void move(float dx, float dy, float dz);
