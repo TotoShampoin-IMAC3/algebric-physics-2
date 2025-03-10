@@ -1,5 +1,6 @@
 // DO NOT REMOVE
 // This file is there because glfwpp needs it for std::exchange
+#include "physics/Time.hpp"
 #include <algorithm>
 #include <execution>
 #include <utility>
@@ -35,6 +36,10 @@ const float PINCH_FORCE = 100000.0f;
 
 const float POINT_SIZE = 0.05f;
 const float LINE_SIZE = 0.025f;
+
+// ===== Profiling deduction =====
+// The rendering as it is now is the main bottleneck.
+// TODO: Support rendering of multiple objects in less calls.
 
 int main(int argc, const char* argv[]) {
     auto GLFW = glfw::init();
@@ -180,6 +185,7 @@ int main(int argc, const char* argv[]) {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     Time time;
+    Profiler profiler;
     while (!window.shouldClose()) {
         float delta = time.deltaTime();
         angle += time.deltaTime();
@@ -202,6 +208,8 @@ int main(int argc, const char* argv[]) {
         //     particle.update(delta);
         // }
 
+        profiler.begin();
+
         std::for_each(
             std::execution::par_unseq, links.begin(), links.end(),
             [&](auto& link) {
@@ -223,6 +231,8 @@ int main(int argc, const char* argv[]) {
                 particle.update(delta);
             }
         );
+
+        profiler.tick(); // 0 = simulation
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -254,6 +264,8 @@ int main(int argc, const char* argv[]) {
                 );
         }
 
+        profiler.tick(); // 1 = rendering
+
         float mass = particles[0].mass;
 
         ImGui_ImplOpenGL3_NewFrame();
@@ -263,6 +275,8 @@ int main(int argc, const char* argv[]) {
         ImGui::Begin("UI");
         ImGui::SeparatorText("Profiling");
         ImGui::Text("FPS: %.2f", 1.0f / time.deltaTime());
+        ImGui::Text("Time to simulate: %.5fs", profiler[0]);
+        ImGui::Text("Time to render: %.5fs", profiler[1]);
         ImGui::Text("N : %d", N);
         ImGui::Text("N particles: %lld", particles.size());
         ImGui::Text("N links: %lld", links.size());

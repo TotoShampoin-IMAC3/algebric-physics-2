@@ -23,3 +23,24 @@ Second Time::deltaTime() const {
 Second Time::elapsedTime() const {
     return _elapsedTime;
 }
+
+Profiler::Profiler() {
+    _times.reserve(1000);
+    begin();
+}
+
+void Profiler::begin() {
+    _times.clear();
+    _times.push_back(glfw::getTime());
+}
+
+void Profiler::tick() {
+    _times.push_back(glfw::getTime());
+}
+
+Second Profiler::operator[](size_t index) const {
+    if (index > _times.size()) {
+        return 0.0;
+    }
+    return _times[index + 1] - _times[index];
+}

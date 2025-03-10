@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vector>
 using Second = double;
 
 class Time {
@@ -16,4 +17,17 @@ private:
     Second _lastTime;
     Second _deltaTime;
     Second _elapsedTime;
+};
+
+class Profiler {
+public:
+    Profiler();
+
+    void begin();
+    void tick();
+
+    Second operator[](size_t index) const;
+
+private:
+    std::vector<Second> _times;
 };
