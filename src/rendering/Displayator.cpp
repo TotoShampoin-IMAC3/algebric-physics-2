@@ -140,6 +140,24 @@ Displayator& Displayator::drawLines(
     return *this;
 }
 
+Displayator& Displayator::drawLines(
+    const std::vector<std::pair<glm::vec3, glm::vec3>>& lines
+) {
+    _lineShader.use()
+        .setUniform("color", _color)
+        .setUniform("width", _lineWidth)
+        .setUniform("view", _view)
+        .setUniform("projection", _projection);
+    _quadMesh.bind();
+    for (const auto& [start, end] : lines) {
+        _lineShader.setUniform("start", start);
+        _lineShader.setUniform("end", end);
+        _quadMesh.draw();
+    }
+    _quadMesh.unbind();
+    return *this;
+}
+
 Displayator& Displayator::setView(const glm::mat4& view) {
     this->_view = view;
     return *this;

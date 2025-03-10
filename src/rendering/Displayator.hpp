@@ -5,6 +5,8 @@
 
 #include <glm/glm.hpp>
 #include <klein/klein.hpp>
+#include <utility>
+#include <vector>
 
 class Displayator {
 public:
@@ -25,6 +27,9 @@ public:
     Displayator& drawPoints(const std::vector<glm::vec3>& positions);
     Displayator& drawLines(
         const std::vector<glm::vec3>& starts, const std::vector<glm::vec3>& ends
+    );
+    Displayator& drawLines(
+        const std::vector<std::pair<glm::vec3, glm::vec3>>& lines
     );
 
     Displayator& setView(const glm::mat4& view);
