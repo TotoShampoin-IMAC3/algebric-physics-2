@@ -1,6 +1,7 @@
 // DO NOT REMOVE
 // This file is there because glfwpp needs it for std::exchange
 #include "physics/Time.hpp"
+#include "utils/types.hpp"
 #include <algorithm>
 #include <execution>
 #include <utility>
@@ -79,6 +80,9 @@ int main(int argc, const char* argv[]) {
     ConstantForce gravity {kln::translator(gravityForce, 0, -1, 0)};
     Spring spring {KNOT, STIFF, VISCOSITY};
 
+    std::vector<glm::vec3> points;
+    std::vector<std::pair<glm::vec3, glm::vec3>> lines;
+
     const auto reset = [&] {
         float mass = MASS;
         if (!particles.empty()) {
@@ -86,14 +90,6 @@ int main(int argc, const char* argv[]) {
         }
         particles.clear();
         links.clear();
-        // for (int i = 0; i < N; i++) {
-        //     particles.emplace_back(
-        //         kln::point((i - int(N / 2)) * KNOT, 0, 0), mass
-        //     );
-        //     if (i > 0) {
-        //         links.emplace_back(i - 1, i);
-        //     }
-        // }
         for (const auto& i : std::views::iota(0, nextCount)) {
             for (const auto& j : std::views::iota(0, nextCount)) {
                 particles.emplace_back(
@@ -123,16 +119,13 @@ int main(int argc, const char* argv[]) {
                         KNOT * M_SQRT2
                     );
                 }
-                // if ((i == 0 && j == 0) || (i == 0 && j == nextCount - 1) ||
-                //     (i == nextCount - 1 && j == 0) ||
-                //     (i == nextCount - 1 && j == nextCount - 1)) {
-                //     particles.back().lock = true;
-                // }
-                if ((i == 0 && j == 0) || (i == nextCount - 1 && j == 0)) {
+                if (i == 0) {
                     particles.back().lock = true;
                 }
             }
         }
+        points.resize(particles.size());
+        lines.resize(links.size());
     };
     reset();
 
@@ -195,19 +188,6 @@ int main(int argc, const char* argv[]) {
             delta = 0;
         }
 
-        // for (auto& link : links) {
-        //     spring.length = link.length;
-        //     spring.prepareForce(particles[link.a], particles[link.b]);
-        // }
-        // for (auto& particle : particles) {
-        //     gravity.prepareForce(particle);
-        //     ground.prepareForce(particle);
-        // }
-        // for (auto& particle : particles) {
-        //     particle.updateForce(delta);
-        //     particle.update(delta);
-        // }
-
         profiler.begin();
 
         std::for_each(
@@ -234,37 +214,34 @@ int main(int argc, const char* argv[]) {
 
         profiler.tick(); // 0 = simulation
 
+        std::transform(
+            particles.begin(), particles.end(), points.begin(),
+            [](const auto& particle) { return pointToVec(particle.position); }
+        );
+        std::transform(
+            links.begin(), links.end(), lines.begin(),
+            [&](const auto& link) {
+                return std::pair(
+                    pointToVec(particles[link.a].position),
+                    pointToVec(particles[link.b].position)
+                );
+            }
+        );
+
+        profiler.tick(); // 1 = conversion
+
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         displayator.setView(camera.view());
 
         displayator.setColor({1, 1, 1});
-        displayator.setPlaneSize(10.0f).drawPlane(ground.wall);
         displayator.setPointSize(POINT_SIZE).setLineWidth(LINE_SIZE);
-        for (auto& particle : particles) {
-            if (particle.lock) {
-                displayator.setColor({1, 1, 0});
-            } else {
-                displayator.setColor({1, 1, 1});
-            }
-            displayator.drawPoint(particle.position);
-        }
-        for (auto& link : links) {
-            auto length = link.length;
-            auto dist =
-                (particles[link.a].position & particles[link.b].position)
-                    .norm();
-            float fac = glm::max<float>(0, 1 - (dist - length));
-            glm::vec3 color =
-                glm::mix(glm::vec3(1, 0, 0), glm::vec3(0, 1, 0), fac);
-            displayator //
-                .setColor(color)
-                .drawLine(
-                    particles[link.a].position, particles[link.b].position
-                );
-        }
+        displayator.drawPoints(points);
+        displayator.drawLines(lines);
 
-        profiler.tick(); // 1 = rendering
+        displayator.setPlaneSize(10.0f).drawPlane(ground.wall);
+
+        profiler.tick(); // 2 = rendering
 
         float mass = particles[0].mass;
 
@@ -276,8 +253,8 @@ int main(int argc, const char* argv[]) {
         ImGui::SeparatorText("Profiling");
         ImGui::Text("FPS: %.2f", 1.0f / time.deltaTime());
         ImGui::Text("Time to simulate: %.5fs", profiler[0]);
-        ImGui::Text("Time to render: %.5fs", profiler[1]);
-        ImGui::Text("N : %d", N);
+        ImGui::Text("Time to convert : %.5fs", profiler[1]);
+        ImGui::Text("Time to render  : %.5fs", profiler[2]);
         ImGui::Text("N particles: %lld", particles.size());
         ImGui::Text("N links: %lld", links.size());
         ImGui::SeparatorText("Simulation");
@@ -293,7 +270,7 @@ int main(int argc, const char* argv[]) {
         }
         ImGui::InputFloat("Pinch force", &pinchForce);
         if (ImGui::InputInt("Pinch index", &pinchIndex)) {
-            pinchIndex = (pinchIndex + N) % N;
+            pinchIndex = (pinchIndex + particles.size()) % particles.size();
         }
         ImGui::Separator();
         ImGui::InputFloat("Stiffness", &spring.stiffness);
