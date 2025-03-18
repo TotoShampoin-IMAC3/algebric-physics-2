@@ -6,6 +6,8 @@
 #include "klein/plane.hpp"
 #include "klein/point.hpp"
 #include "klein/translator.hpp"
+#include <cassert>
+#include <execution>
 
 Shader& basicFrag() {
     static auto shader = loadShader(GL_FRAGMENT_SHADER, "res/basic.frag");
@@ -29,6 +31,18 @@ Displayator::Displayator()
           Program()
               .attachShader(loadShader(GL_VERTEX_SHADER, "res/plane.vert"))
               .attachShader(loadShader(GL_FRAGMENT_SHADER, "res/plane.frag"))
+              .link()
+      )),
+      _pointsShader(std::move(
+          Program()
+              .attachShader(loadShader(GL_VERTEX_SHADER, "res/points.vert"))
+              .attachShader(basicFrag())
+              .link()
+      )),
+      _linesShader(std::move(
+          Program()
+              .attachShader(loadShader(GL_VERTEX_SHADER, "res/lines.vert"))
+              .attachShader(basicFrag())
               .link()
       )),
       _quadMesh(
@@ -108,16 +122,21 @@ Displayator& Displayator::drawPlane(const kln::plane& plane) {
 }
 
 Displayator& Displayator::drawPoints(const std::vector<glm::vec3>& positions) {
-    _pointShader.use()
+    _pointsShader.use()
         .setUniform("color", _color)
         .setUniform("size", _pointSize)
         .setUniform("view", _view)
         .setUniform("projection", _projection);
     _quadMesh.bind();
-    for (const auto& position : positions) {
-        _pointShader.setUniform("point", position);
-        _quadMesh.draw();
-    }
+    std::vector<Instance> instances(positions.size());
+    std::transform(
+        std::execution::par_unseq, positions.begin(), positions.end(),
+        instances.begin(),
+        [](const glm::vec3& position) {
+            return Instance {position, glm::vec3(0.0f)};
+        }
+    );
+    _quadMesh.drawInstanced(instances);
     _quadMesh.unbind();
     return *this;
 }
@@ -125,17 +144,21 @@ Displayator& Displayator::drawPoints(const std::vector<glm::vec3>& positions) {
 Displayator& Displayator::drawLines(
     const std::vector<glm::vec3>& starts, const std::vector<glm::vec3>& ends
 ) {
-    _lineShader.use()
+    _linesShader.use()
         .setUniform("color", _color)
         .setUniform("width", _lineWidth)
         .setUniform("view", _view)
         .setUniform("projection", _projection);
     _quadMesh.bind();
-    for (size_t i = 0; i < starts.size(); i++) {
-        _lineShader.setUniform("start", starts[i]);
-        _lineShader.setUniform("end", ends[i]);
-        _quadMesh.draw();
-    }
+    std::vector<Instance> instances(starts.size());
+    std::transform(
+        std::execution::par_unseq, starts.begin(), starts.end(), ends.begin(),
+        instances.begin(),
+        [](const glm::vec3& start, const glm::vec3& end) {
+            return Instance {start, end};
+        }
+    );
+    _quadMesh.drawInstanced(instances);
     _quadMesh.unbind();
     return *this;
 }
@@ -143,17 +166,21 @@ Displayator& Displayator::drawLines(
 Displayator& Displayator::drawLines(
     const std::vector<std::pair<glm::vec3, glm::vec3>>& lines
 ) {
-    _lineShader.use()
+    _linesShader.use()
         .setUniform("color", _color)
         .setUniform("width", _lineWidth)
         .setUniform("view", _view)
         .setUniform("projection", _projection);
     _quadMesh.bind();
-    for (const auto& [start, end] : lines) {
-        _lineShader.setUniform("start", start);
-        _lineShader.setUniform("end", end);
-        _quadMesh.draw();
-    }
+    std::vector<Instance> instances(lines.size());
+    std::transform(
+        std::execution::par_unseq, lines.begin(), lines.end(),
+        instances.begin(),
+        [](const std::pair<glm::vec3, glm::vec3>& line) {
+            return Instance {line.first, line.second};
+        }
+    );
+    _quadMesh.drawInstanced(instances);
     _quadMesh.unbind();
     return *this;
 }

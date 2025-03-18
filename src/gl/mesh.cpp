@@ -18,6 +18,10 @@ Mesh::Mesh(
             throw std::runtime_error("Failed to create element buffer");
         }
     }
+    glGenBuffers(1, &_instanceVbo);
+    if (_instanceVbo == 0) {
+        throw std::runtime_error("Failed to create instance buffer");
+    }
 
     glBindVertexArray(_vao);
 
@@ -53,6 +57,20 @@ Mesh::Mesh(
     );
     glEnableVertexAttribArray(2);
 
+    glBindBuffer(GL_ARRAY_BUFFER, _instanceVbo);
+
+    glVertexAttribPointer(
+        3, 3, GL_FLOAT, GL_FALSE, sizeof(Instance), (void*)offsetof(Instance, a)
+    );
+    glEnableVertexAttribArray(3);
+    glVertexAttribDivisor(3, 1);
+
+    glVertexAttribPointer(
+        4, 3, GL_FLOAT, GL_FALSE, sizeof(Instance), (void*)offsetof(Instance, b)
+    );
+    glEnableVertexAttribArray(4);
+    glVertexAttribDivisor(4, 1);
+
     glBindVertexArray(0);
 
     if (indices.size() > 0) {
@@ -74,25 +92,32 @@ Mesh::Mesh(Mesh&& other) noexcept
     : _vao(other._vao),
       _vbo(other._vbo),
       _ebo(other._ebo),
+      _instanceVbo(other._instanceVbo),
       _count(other._count) {
     other._vao = 0;
     other._vbo = 0;
     other._ebo = 0;
+    other._instanceVbo = 0;
     other._count = 0;
 }
 
 Mesh& Mesh::operator=(Mesh&& other) noexcept {
     if (this != &other) {
-        glDeleteBuffers(1, &_ebo);
+        if (_instanceVbo)
+            glDeleteBuffers(1, &_instanceVbo);
+        if (_ebo)
+            glDeleteBuffers(1, &_ebo);
         glDeleteBuffers(1, &_vbo);
         glDeleteVertexArrays(1, &_vao);
         _vao = other._vao;
         _vbo = other._vbo;
         _ebo = other._ebo;
+        _instanceVbo = other._instanceVbo;
         _count = other._count;
         other._vao = 0;
         other._vbo = 0;
         other._ebo = 0;
+        other._instanceVbo = 0;
         other._count = 0;
     }
     return *this;
@@ -114,5 +139,22 @@ Mesh& Mesh::draw() noexcept {
     } else {
         glDrawArrays(GL_TRIANGLES, 0, _count);
     }
+    return *this;
+}
+
+Mesh& Mesh::drawInstanced(const std::vector<Instance>& instances) noexcept {
+    glBindBuffer(GL_ARRAY_BUFFER, _instanceVbo);
+    glBufferData(
+        GL_ARRAY_BUFFER, instances.size() * sizeof(Instance), instances.data(),
+        GL_STATIC_DRAW
+    );
+    if (_ebo != 0) {
+        glDrawElementsInstanced(
+            GL_TRIANGLES, _count, GL_UNSIGNED_INT, nullptr, instances.size()
+        );
+    } else {
+        glDrawArraysInstanced(GL_TRIANGLES, 0, _count, instances.size());
+    }
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
     return *this;
 }

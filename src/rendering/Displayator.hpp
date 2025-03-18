@@ -44,6 +44,8 @@ private:
     Program _pointShader;
     Program _lineShader;
     Program _planeShader;
+    Program _pointsShader;
+    Program _linesShader;
     Mesh _quadMesh;
 
     glm::vec3 _color {1.0f, 1.0f, 1.0f};
