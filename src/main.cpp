@@ -30,8 +30,8 @@ const int N = 5;
 const float KNOT = .5f;
 const float STIFF = 2000.f;
 const float MASS = .1f;
-const float VISCOSITY = 1.f;
-const float GRAVITY = 0.0f;
+const float VISCOSITY = .1f;
+const float GRAVITY = 10.0f;
 
 const float PINCH_FORCE = 100000.0f;
 
@@ -41,6 +41,9 @@ const float LINE_SIZE = 0.025f;
 // ===== Profiling deduction =====
 // The rendering as it is now is the main bottleneck.
 // TODO: Support rendering of multiple objects in less calls.
+
+// ===== Profiling deduction 2 =====
+// Imgui tanks the performance, somehow.
 
 int main(int argc, const char* argv[]) {
     auto GLFW = glfw::init();
@@ -177,8 +180,14 @@ int main(int argc, const char* argv[]) {
     glDepthFunc(GL_LEQUAL);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+    displayator.setColor({1, 1, 1});
+    displayator.setPointSize(POINT_SIZE)
+        .setLineWidth(LINE_SIZE)
+        .setPlaneSize(10.0f);
+
     Time time;
     Profiler profiler;
+    float lastProfilerTime = 0.0f;
     while (!window.shouldClose()) {
         float delta = time.deltaTime();
         angle += time.deltaTime();
@@ -234,12 +243,9 @@ int main(int argc, const char* argv[]) {
 
         displayator.setView(camera.view());
 
-        displayator.setColor({1, 1, 1});
-        displayator.setPointSize(POINT_SIZE).setLineWidth(LINE_SIZE);
         displayator.drawPoints(points);
         displayator.drawLines(lines);
-
-        displayator.setPlaneSize(10.0f).drawPlane(ground.wall);
+        displayator.drawPlane(ground.wall);
 
         profiler.tick(); // 2 = rendering
 
@@ -255,6 +261,7 @@ int main(int argc, const char* argv[]) {
         ImGui::Text("Time to simulate: %.5fs", profiler[0]);
         ImGui::Text("Time to convert : %.5fs", profiler[1]);
         ImGui::Text("Time to render  : %.5fs", profiler[2]);
+        ImGui::Text("Time to imgui  : %.5fs", lastProfilerTime);
         ImGui::Text("N particles: %lld", particles.size());
         ImGui::Text("N links: %lld", links.size());
         ImGui::SeparatorText("Simulation");
@@ -288,6 +295,9 @@ int main(int argc, const char* argv[]) {
         ImGui::EndFrame();
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        profiler.tick(); // 3 = imgui
+        lastProfilerTime = profiler[3];
 
         glfw::pollEvents();
         window.swapBuffers();
