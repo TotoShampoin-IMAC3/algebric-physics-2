@@ -42,9 +42,10 @@ int main(int argc, const char* argv[]) {
     gladLoadGLLoader((GLADloadproc)glfw::getProcAddress);
 
     Displayator displayator;
-    displayator.setProjection(
-        glm::radians(45.0f), WIDTH / HEIGHT, 0.1f, 100.0f
-    );
+    displayator.setProjection(glm::radians(45.0f), WIDTH / HEIGHT, NEAR, FAR);
+
+    float windowWidth = WIDTH;
+    float windowHeight = HEIGHT;
 
     bool windowRefresh = false;
 
@@ -55,17 +56,27 @@ int main(int argc, const char* argv[]) {
     float angle = 0.0f;
     bool isHolding = false;
     int nextCount = N;
-    glm::vec3 pinchDirection = {0, 0, 1};
-    float pinchForce = PINCH_FORCE;
     float gravityForce = GRAVITY;
+    DrapeAnchors anchors = DrapeAnchors::Corners;
+
+    glm::vec3 pinchDirection = {0, 1, 0};
+    float pinchForce = PINCH_FORCE;
     int pinchIndex = 0;
+
+    glm::vec4 groundFactors = {0, 1, 0, 5};
 
     unsigned int threads = std::thread::hardware_concurrency();
 
     std::vector<Particle> particles;
     std::vector<SpringLink> links;
 
-    Wall ground {kln::plane(0, 1, 0, 5), 100.f};
+    // Wall ground {kln::plane(0, 1, 0, 5), 100.f};
+    Wall ground {
+        kln::plane(
+            groundFactors.x, groundFactors.y, groundFactors.z, groundFactors.w
+        ),
+        100.f
+    };
     ConstantForce gravity {kln::translator(gravityForce, 0, -1, 0)};
     Spring spring {KNOT, STIFF, VISCOSITY};
 
@@ -79,9 +90,10 @@ int main(int argc, const char* argv[]) {
         }
         particles.clear();
         links.clear();
-        drape(particles, links, {nextCount, mass, KNOT});
+        drape(particles, links, {nextCount, mass, KNOT, anchors});
         points.resize(particles.size());
         lines.resize(links.size());
+        pinchIndex = nextCount * (nextCount + 1) / 2;
     };
     reset();
 
@@ -91,11 +103,11 @@ int main(int argc, const char* argv[]) {
     );
     window.framebufferSizeEvent.setCallback([&](glfw::Window&, int width,
                                                 int height) {
-        float widthf = static_cast<float>(width);
-        float heightf = static_cast<float>(height);
-        camera.sensitivity = 5.f / widthf;
+        windowWidth = static_cast<float>(width);
+        windowHeight = static_cast<float>(height);
+        camera.sensitivity = 5.f / windowWidth;
         displayator.setProjection(
-            glm::radians(45.0f), widthf / heightf, 0.1f, 100.0f
+            glm::radians(45.0f), windowWidth / windowHeight, NEAR, FAR
         );
         glViewport(0, 0, width, height);
     });
@@ -190,18 +202,18 @@ int main(int argc, const char* argv[]) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         displayator.setView(camera.view())
-            .setColor({1, 1, 1})
             .setPointSize(POINT_SIZE)
             .setLineWidth(LINE_SIZE)
-            .setPlaneSize(10.0f);
+            .setPlaneSize(PLANE_SIZE);
 
-        displayator.drawPoints(points);
-        displayator.drawLines(lines);
-        displayator.drawPlane(ground.wall);
+        displayator.setColor({1, 1, 1}).drawPoints(points);
+        displayator.setColor({0, 1, 0}).drawLines(lines);
 
         displayator.setColor({1, 0, 0})
             .setPointSize(POINT_SIZE * 2)
             .drawPoint(particles[pinchIndex].position);
+
+        displayator.setColor({0, 0.5, 1}).drawPlane(ground.wall);
 
         profiler.tick(); // 2 = rendering
 
@@ -211,7 +223,15 @@ int main(int argc, const char* argv[]) {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::Begin("UI");
+        ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
+        ImGui::Begin(
+            "UI", nullptr,
+            ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse |
+                ImGuiWindowFlags_NoSavedSettings |
+                ImGuiWindowFlags_NoFocusOnAppearing |
+                ImGuiWindowFlags_AlwaysAutoResize
+        );
         ImGui::SeparatorText("Profiling");
         ImGui::Text("Nb threads: %d", threads);
         ImGui::Text("FPS: %.2f", 1.0f / time.deltaTime());
@@ -227,27 +247,9 @@ int main(int argc, const char* argv[]) {
         }
         ImGui::SameLine();
         ImGui::InputInt("N", &nextCount);
-        if (ImGui::Button("Pinch")) {
-            particles[pinchIndex].applyForce(
-                kln::translator(
-                    pinchForce, pinchDirection.x, pinchDirection.y,
-                    pinchDirection.z
-                ),
-                time.deltaTime()
-            );
-        }
-        ImGui::InputFloat3("Pinch direction", glm::value_ptr(pinchDirection));
-        ImGui::InputFloat("Pinch force", &pinchForce);
-        if (ImGui::InputInt("Pinch index", &pinchIndex)) {
-            pinchIndex = (pinchIndex + particles.size()) % particles.size();
-        }
-        ImGui::Separator();
         ImGui::InputFloat("Stiffness", &spring.stiffness);
         ImGui::InputFloat("Viscosity", &spring.viscosity);
         if (ImGui::InputFloat("Mass", &mass)) {
-            // for (auto& particle : particles) {
-            //     particle.mass = mass;
-            // }
             std::for_each(
                 std::execution::par_unseq, particles.begin(), particles.end(),
                 [&](auto& particle) { particle.mass = mass; }
@@ -255,6 +257,92 @@ int main(int argc, const char* argv[]) {
         }
         if (ImGui::InputFloat("Gravity", &gravityForce)) {
             gravity.force = kln::translator(gravityForce, 0, -1, 0);
+        }
+        if (ImGui::BeginCombo("Anchors", to_string(anchors).c_str())) {
+            for (const auto& anchor : drape_anchors) {
+                if (ImGui::Selectable(
+                        to_string(anchor).c_str(), anchor == anchors
+                    )) {
+                    anchors = anchor;
+                }
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::End();
+
+        ImGui::SetNextWindowPos({windowWidth, 0}, ImGuiCond_Always, {1, 0});
+        ImGui::Begin(
+            "UI 2", nullptr,
+            ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse |
+                ImGuiWindowFlags_NoSavedSettings |
+                ImGuiWindowFlags_NoFocusOnAppearing |
+                ImGuiWindowFlags_AlwaysAutoResize
+        );
+        ImGui::SeparatorText("Particle observer");
+        if (ImGui::InputInt("Particle index", &pinchIndex)) {
+            pinchIndex = (pinchIndex + particles.size()) % particles.size();
+        }
+        ImGui::Text(
+            "Position: % 3.2f e013 + % 3.2f e021 + % 3.2f e032 + % 3.2f e123",
+            particles[pinchIndex].position.e013(),
+            particles[pinchIndex].position.e021(),
+            particles[pinchIndex].position.e032(),
+            particles[pinchIndex].position.e123()
+        );
+        ImGui::Text("Velocity:");
+        ImGui::Text(
+            "% 3.2f + % 3.2f e01 + % 3.2f e02 + % 3.2f e03",
+            particles[pinchIndex].velocity.scalar(),
+            particles[pinchIndex].velocity.e01(),
+            particles[pinchIndex].velocity.e02(),
+            particles[pinchIndex].velocity.e03()
+        );
+        ImGui::Text(
+            "      + % 3.2f e10 + % 3.2f e20 + % 3.2f e30",
+            particles[pinchIndex].velocity.e10(),
+            particles[pinchIndex].velocity.e20(),
+            particles[pinchIndex].velocity.e30()
+        );
+        glm::vec3 pinchDirectionNormalized;
+        ImGui::SliderFloat3(
+            "Pinch direction (will be normalized)",
+            glm::value_ptr(pinchDirection), -1.f, 1.f
+        );
+        pinchDirectionNormalized = glm::normalize(pinchDirection);
+        auto pinchForceVec = kln::translator(
+            pinchForce, pinchDirectionNormalized.x, pinchDirectionNormalized.y,
+            pinchDirectionNormalized.z
+        );
+        ImGui::InputFloat("Pinch force", &pinchForce);
+        if (ImGui::Button("Pinch")) {
+            particles[pinchIndex].applyForce(pinchForceVec, time.deltaTime());
+        }
+        ImGui::Text("Pinch force: ");
+        ImGui::Text(
+            "% 10.2f + % 10.2f e01 + % 10.2f e02 + % 10.2f e03",
+            pinchForceVec.scalar(), pinchForceVec.e01(), pinchForceVec.e02(),
+            pinchForceVec.e03()
+        );
+        ImGui::Text(
+            "           + % 10.2f e10 + % 10.2f e20 + % 10.2f e30",
+            pinchForceVec.e10(), pinchForceVec.e20(), pinchForceVec.e30()
+        );
+        ImGui::SeparatorText("Ground");
+        // if (ImGui::SliderFloat4(
+        //         "Ground factors", glm::value_ptr(groundFactors), -1.f, 1.f
+        //     )) {
+        if (ImGui::SliderFloat("e0", &groundFactors.x, -1.f, 1.f) ||
+            ImGui::SliderFloat("e1", &groundFactors.y, -1.f, 1.f) ||
+            ImGui::SliderFloat("e2", &groundFactors.z, -1.f, 1.f) ||
+            ImGui::SliderFloat("e3", &groundFactors.w, -5.f, 5.f)) {
+            ground.wall = kln::plane(
+                groundFactors.x, groundFactors.y, groundFactors.z,
+                groundFactors.w
+            );
+        }
+        if (ImGui::InputFloat("Ground force", &ground.force)) {
+            ground.force = ground.force;
         }
         ImGui::End();
 

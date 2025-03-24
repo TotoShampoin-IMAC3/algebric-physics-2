@@ -15,12 +15,12 @@ void main() {
     float dy = coord.y - floor(coord.y);
 
     float a =
-        mix(0.5, 0.15, smoothstep(0.02, 0.03, dx) * smoothstep(0.02, 0.03, dy));
+        mix(1.0, 0.25, smoothstep(0.02, 0.03, dx) * smoothstep(0.02, 0.03, dy));
 
     vec3 c = color;
     if (!gl_FrontFacing) {
         c *= 0.25f;
     }
 
-    FragColor = vec4(c, a);
+    FragColor = vec4(c * a, 0.5);
 }

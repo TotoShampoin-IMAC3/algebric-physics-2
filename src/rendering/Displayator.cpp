@@ -36,7 +36,7 @@ Displayator::Displayator()
       _pointsShader(std::move(
           Program()
               .attachShader(loadShader(GL_VERTEX_SHADER, "res/points.vert"))
-              .attachShader(basicFrag())
+              .attachShader(loadShader(GL_FRAGMENT_SHADER, "res/point.frag"))
               .link()
       )),
       _linesShader(std::move(

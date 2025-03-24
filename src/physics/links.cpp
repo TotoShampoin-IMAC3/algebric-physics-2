@@ -86,7 +86,8 @@ kln::translator Wall::_calculateForce(Particle& p1) {
     if (distance.scalar() >= 0) {
         return {};
     }
-    return kln::translator(force, wall.e1(), wall.e2(), wall.e3());
+    return kln::translator(force, wall.e1(), wall.e2(), wall.e3()) *
+           -distance.scalar();
 }
 
 void Wall::applyForce(const Second& deltaTime, Particle& p1) {

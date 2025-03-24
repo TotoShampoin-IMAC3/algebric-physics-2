@@ -7,7 +7,7 @@ void drape(
     std::vector<Particle>& particles, std::vector<SpringLink>& links,
     const DrapeParameters& params
 ) {
-    auto [nextCount, mass, knot] = params;
+    auto [nextCount, mass, knot, anchors] = params;
 
     for (const auto& i : std::views::iota(0, nextCount)) {
         for (const auto& j : std::views::iota(0, nextCount)) {
@@ -38,11 +38,27 @@ void drape(
                     knot * M_SQRT2
                 );
             }
-            if ((i == 0 && j == 0) ||
-                (i == nextCount - 1 && j == nextCount - 1) ||
-                (i == 0 && j == nextCount - 1) ||
-                (i == nextCount - 1 && j == 0)) {
-                particles.back().lock = true;
+            switch (anchors) {
+            case DrapeAnchors::None: break;
+            case DrapeAnchors::Edges:
+                if (i == 0 || i == nextCount - 1 || j == 0 ||
+                    j == nextCount - 1) {
+                    particles.back().lock = true;
+                }
+                break;
+            case DrapeAnchors::Corners:
+                if ((i == 0 && j == 0) ||
+                    (i == nextCount - 1 && j == nextCount - 1) ||
+                    (i == 0 && j == nextCount - 1) ||
+                    (i == nextCount - 1 && j == 0)) {
+                    particles.back().lock = true;
+                }
+                break;
+            case DrapeAnchors::Center:
+                if (i == nextCount / 2 && j == nextCount / 2) {
+                    particles.back().lock = true;
+                }
+                break;
             }
         }
     }
