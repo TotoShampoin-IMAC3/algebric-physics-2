@@ -1,18 +1,24 @@
 // DO NOT REMOVE
 // This file is there because glfwpp needs it for std::exchange
-#include "physics/Time.hpp"
-#include "utils/types.hpp"
+#include "glm/gtc/type_ptr.hpp"
 #include <algorithm>
 #include <execution>
+#include <ranges>
+#include <thread>
 #include <utility>
 #include <vector>
 
 #define GLFW_INCLUDE_NONE
 #include <glfwpp/glfwpp.h>
 
+#include "constants.hpp"
+
+#include "physics/Time.hpp"
 #include "physics/physics.hpp"
 #include "rendering/Camera.hpp"
 #include "rendering/Displayator.hpp"
+#include "utils/creators.hpp"
+#include "utils/types.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <klein/klein.hpp>
@@ -20,23 +26,6 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
-
-#include <ranges>
-
-const float WIDTH = 800.f;
-const float HEIGHT = 600.f;
-
-const int N = 5;
-const float KNOT = .5f;
-const float STIFF = 2000.f;
-const float MASS = .1f;
-const float VISCOSITY = .1f;
-const float GRAVITY = 10.0f;
-
-const float PINCH_FORCE = 100000.0f;
-
-const float POINT_SIZE = 0.05f;
-const float LINE_SIZE = 0.025f;
 
 // ===== Profiling deduction =====
 // The rendering as it is now is the main bottleneck.
@@ -66,15 +55,12 @@ int main(int argc, const char* argv[]) {
     float angle = 0.0f;
     bool isHolding = false;
     int nextCount = N;
+    glm::vec3 pinchDirection = {0, 0, 1};
     float pinchForce = PINCH_FORCE;
     float gravityForce = GRAVITY;
     int pinchIndex = 0;
 
-    struct SpringLink {
-        int a;
-        int b;
-        float length;
-    };
+    unsigned int threads = std::thread::hardware_concurrency();
 
     std::vector<Particle> particles;
     std::vector<SpringLink> links;
@@ -93,40 +79,7 @@ int main(int argc, const char* argv[]) {
         }
         particles.clear();
         links.clear();
-        for (const auto& i : std::views::iota(0, nextCount)) {
-            for (const auto& j : std::views::iota(0, nextCount)) {
-                particles.emplace_back(
-                    kln::point(
-                        (i - int(nextCount / 2)) * KNOT, 0,
-                        (j - int(nextCount / 2)) * KNOT
-                    ),
-                    mass
-                );
-                if (i > 0) {
-                    links.emplace_back(
-                        (i - 1) * nextCount + j, i * nextCount + j, KNOT
-                    );
-                }
-                if (j > 0) {
-                    links.emplace_back(
-                        i * nextCount + (j - 1), i * nextCount + j, KNOT
-                    );
-                }
-                if (i > 0 && j > 0) {
-                    links.emplace_back(
-                        (i - 1) * nextCount + (j - 1), i * nextCount + j,
-                        KNOT * M_SQRT2
-                    );
-                    links.emplace_back(
-                        i * nextCount + (j - 1), (i - 1) * nextCount + j,
-                        KNOT * M_SQRT2
-                    );
-                }
-                if (i == 0) {
-                    particles.back().lock = true;
-                }
-            }
-        }
+        drape(particles, links, {nextCount, mass, KNOT});
         points.resize(particles.size());
         lines.resize(links.size());
     };
@@ -179,11 +132,6 @@ int main(int argc, const char* argv[]) {
     glEnable(GL_BLEND);
     glDepthFunc(GL_LEQUAL);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    displayator.setColor({1, 1, 1});
-    displayator.setPointSize(POINT_SIZE)
-        .setLineWidth(LINE_SIZE)
-        .setPlaneSize(10.0f);
 
     Time time;
     Profiler profiler;
@@ -241,11 +189,19 @@ int main(int argc, const char* argv[]) {
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        displayator.setView(camera.view());
+        displayator.setView(camera.view())
+            .setColor({1, 1, 1})
+            .setPointSize(POINT_SIZE)
+            .setLineWidth(LINE_SIZE)
+            .setPlaneSize(10.0f);
 
         displayator.drawPoints(points);
         displayator.drawLines(lines);
         displayator.drawPlane(ground.wall);
+
+        displayator.setColor({1, 0, 0})
+            .setPointSize(POINT_SIZE * 2)
+            .drawPoint(particles[pinchIndex].position);
 
         profiler.tick(); // 2 = rendering
 
@@ -257,6 +213,7 @@ int main(int argc, const char* argv[]) {
 
         ImGui::Begin("UI");
         ImGui::SeparatorText("Profiling");
+        ImGui::Text("Nb threads: %d", threads);
         ImGui::Text("FPS: %.2f", 1.0f / time.deltaTime());
         ImGui::Text("Time to simulate: %.5fs", profiler[0]);
         ImGui::Text("Time to convert : %.5fs", profiler[1]);
@@ -272,9 +229,14 @@ int main(int argc, const char* argv[]) {
         ImGui::InputInt("N", &nextCount);
         if (ImGui::Button("Pinch")) {
             particles[pinchIndex].applyForce(
-                kln::translator(pinchForce, 0, 0, 1), time.deltaTime()
+                kln::translator(
+                    pinchForce, pinchDirection.x, pinchDirection.y,
+                    pinchDirection.z
+                ),
+                time.deltaTime()
             );
         }
+        ImGui::InputFloat3("Pinch direction", glm::value_ptr(pinchDirection));
         ImGui::InputFloat("Pinch force", &pinchForce);
         if (ImGui::InputInt("Pinch index", &pinchIndex)) {
             pinchIndex = (pinchIndex + particles.size()) % particles.size();
@@ -283,9 +245,13 @@ int main(int argc, const char* argv[]) {
         ImGui::InputFloat("Stiffness", &spring.stiffness);
         ImGui::InputFloat("Viscosity", &spring.viscosity);
         if (ImGui::InputFloat("Mass", &mass)) {
-            for (auto& particle : particles) {
-                particle.mass = mass;
-            }
+            // for (auto& particle : particles) {
+            //     particle.mass = mass;
+            // }
+            std::for_each(
+                std::execution::par_unseq, particles.begin(), particles.end(),
+                [&](auto& particle) { particle.mass = mass; }
+            );
         }
         if (ImGui::InputFloat("Gravity", &gravityForce)) {
             gravity.force = kln::translator(gravityForce, 0, -1, 0);
