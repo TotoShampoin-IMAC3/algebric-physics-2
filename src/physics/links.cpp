@@ -39,11 +39,13 @@ kln::translator Spring::_calculateForce(Particle& p1, Particle& p2) {
     float l0 = length;
     float d = (p1.position & p2.position).norm();
     auto M1M2 = p2.position - p1.position;
+    auto dir = M1M2 / d;
 
     if (d == 0)
         return {};
 
-    auto springForce = pointToTranslator(k * (1 - l0 / d) * M1M2);
+    auto springForce =
+        kln::translator(k * (1 - l0 / d), dir.x(), dir.y(), dir.z());
     auto viscousForce = viscosity * (p2.velocity - p1.velocity);
 
     return springForce * viscousForce;

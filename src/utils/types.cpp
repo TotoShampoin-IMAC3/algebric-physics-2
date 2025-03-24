@@ -9,8 +9,8 @@ glm::vec3 pointToVec(const kln::point& p) {
 }
 
 kln::translator pointToTranslator(const kln::point& p) {
-    // I really don't like that this is the only way to convert a point to a
-    // translator. I hope -O2 will do its magic.
+    // // I really don't like that this is the only way to convert a point to a
+    // // translator. I hope -O2 will do its magic.
     auto l = (p & kln::origin()).norm();
     if (l == 0)
         return {};
