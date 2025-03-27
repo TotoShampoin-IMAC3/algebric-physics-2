@@ -18,3 +18,8 @@ const float PINCH_FORCE = 100000.0f;
 const float POINT_SIZE = 0.05f;
 const float LINE_SIZE = 0.025f;
 const float PLANE_SIZE = 100.0f;
+
+const float DENSITY = 5.f;
+const float DENSITY_REPULSION = 0.1f;
+const float DENSITY_LOOKUP_RADIUS = 2.f;
+const float DENSITY_GRID_SIZE = 1.f;

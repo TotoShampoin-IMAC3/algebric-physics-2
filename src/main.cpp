@@ -1,6 +1,8 @@
 // DO NOT REMOVE
 // This file is there because glfwpp needs it for std::exchange
 #include "glm/gtc/type_ptr.hpp"
+#include "physics/density.hpp"
+#include "utils/shapes.hpp"
 #include <algorithm>
 #include <execution>
 #include <ranges>
@@ -48,6 +50,7 @@ int main(int argc, const char* argv[]) {
     float windowHeight = HEIGHT;
 
     bool windowRefresh = false;
+    bool windowFocused = true;
 
     constexpr auto PI = glm::pi<float>();
     OrbitCamera camera(15.0f, PI / 8, PI / 4);
@@ -79,6 +82,9 @@ int main(int argc, const char* argv[]) {
     };
     ConstantForce gravity {kln::translator(gravityForce, 0, -1, 0)};
     Spring spring {KNOT, STIFF, VISCOSITY};
+    Density density {
+        DENSITY, DENSITY_REPULSION, DENSITY_LOOKUP_RADIUS, DENSITY_GRID_SIZE
+    };
 
     std::vector<glm::vec3> points;
     std::vector<std::pair<glm::vec3, glm::vec3>> lines;
@@ -94,6 +100,7 @@ int main(int argc, const char* argv[]) {
         points.resize(particles.size());
         lines.resize(links.size());
         pinchIndex = nextCount * (nextCount + 1) / 2;
+        density.setParticles(particles);
     };
     reset();
 
@@ -101,6 +108,12 @@ int main(int argc, const char* argv[]) {
 
     window.refreshEvent.setCallback([&](glfw::Window&) { windowRefresh = true; }
     );
+    window.focusEvent.setCallback([&](glfw::Window&, bool focused) {
+        windowFocused = focused;
+    });
+    window.posEvent.setCallback([&](glfw::Window&, int x, int y) {
+        windowRefresh = true;
+    });
     window.framebufferSizeEvent.setCallback([&](glfw::Window&, int width,
                                                 int height) {
         windowWidth = static_cast<float>(width);
@@ -152,13 +165,14 @@ int main(int argc, const char* argv[]) {
         float delta = time.deltaTime();
         angle += time.deltaTime();
 
-        if (windowRefresh) {
+        if (windowRefresh || !windowFocused) {
             windowRefresh = false;
             delta = 0;
         }
 
         profiler.begin();
 
+        // Links preparation
         std::for_each(
             std::execution::par_unseq, links.begin(), links.end(),
             [&](auto& link) {
@@ -166,13 +180,16 @@ int main(int argc, const char* argv[]) {
                 spring.prepareForce(particles[link.a], particles[link.b]);
             }
         );
+        // Particles preparation
         std::for_each(
             std::execution::par_unseq, particles.begin(), particles.end(),
             [&](auto& particle) {
                 gravity.prepareForce(particle);
                 ground.prepareForce(particle);
+                density.prepareForce(particle);
             }
         );
+        // Particles update
         std::for_each(
             std::execution::par_unseq, particles.begin(), particles.end(),
             [&](auto& particle) {
@@ -209,10 +226,33 @@ int main(int argc, const char* argv[]) {
         displayator.setColor({1, 1, 1}).drawPoints(points);
         displayator.setColor({0, 1, 0}).drawLines(lines);
 
+        for (auto part :
+             density.nearbyParticles(particles[pinchIndex].position)) {
+            displayator.setColor({1, .5, 0})
+                .setPointSize(POINT_SIZE * 1.5)
+                .drawPoint(pointToVec(part->position));
+        }
+
         displayator.setColor({1, 0, 0})
             .setPointSize(POINT_SIZE * 2)
             .drawPoint(particles[pinchIndex].position);
 
+        displayator.setLineWidth(LINE_SIZE * 2);
+        // for (auto cell : density.nearbyCells(particles[pinchIndex].position))
+        // {
+        //     drawAABB(
+        //         displayator, density.cellInSpace(cell),
+        //         {density.gridCellSize, density.gridCellSize,
+        //          density.gridCellSize},
+        //         {1, 1, 0}
+        //     );
+        // }
+        // drawSphere(
+        //     displayator, pointToVec(particles[pinchIndex].position),
+        //     density.lookupRadius, {1, 0.75, 0}
+        // );
+
+        // DRAW THIS LAST, BECAUSE IT'S TRANSPARENT
         displayator.setColor({0, 0.5, 1}).drawPlane(ground.wall);
 
         profiler.tick(); // 2 = rendering
