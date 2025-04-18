@@ -28,33 +28,59 @@ void Density::setParticles(std::vector<Particle>& particles) {
     }
 }
 
-std::vector<glm::ivec3> Density::nearbyCells(const kln::point& p1) const {
+const std::vector<glm::ivec3>& Density::nearbyCells(const kln::point& p1
+) const {
     auto cell = _cell(p1);
     auto halfSize = static_cast<int>(std::ceil(lookupRadius / gridCellSize));
     auto size = halfSize * 2 + 1;
-    std::vector<glm::ivec3> cells;
-    cells.reserve(size * size * size);
+    float squaredRadius = lookupRadius * lookupRadius;
+    glm::vec3 centerPos(p1.x(), p1.y(), p1.z());
+
+    // std::vector<glm::ivec3> cells;
+    _cellCache.clear();
+    _cellCache.reserve(size * size * size / 2);
+
     for (int x = -halfSize; x <= halfSize; ++x) {
         for (int y = -halfSize; y <= halfSize; ++y) {
             for (int z = -halfSize; z <= halfSize; ++z) {
-                cells.emplace_back(cell.x + x, cell.y + y, cell.z + z);
+                // cells.emplace_back(cell.x + x, cell.y + y, cell.z + z);
+                glm::vec3 cellCenter = cellInSpace(glm::ivec3(
+                    centerPos.x + x, centerPos.y + y, centerPos.z + z
+                ));
+                auto diff = cellCenter - centerPos;
+                float squaredDist = glm::dot(diff, diff);
+
+                if (squaredDist <= squaredRadius) {
+                    _cellCache.emplace_back(
+                        centerPos.x + x, centerPos.y + y, centerPos.z + z
+                    );
+                }
             }
         }
     }
-    return cells;
+    return _cellCache;
 }
 
-std::vector<Particle*> Density::nearbyParticles(const kln::point& p1) const {
-    std::vector<Particle*> particles;
+const std::vector<Particle*>& Density::nearbyParticles(const kln::point& p1
+) const {
+    _particleCache.clear();
+    // std::vector<Particle*> particles;
     auto cells = nearbyCells(p1);
+
+    // Reserve a reasonable amount based on typical density
+    _particleCache.reserve(cells.size() * 4);
+    // Assuming ~4 particles per cell on average
+
     for (const auto& cell : cells) {
         auto range = _particleMap.equal_range(cell);
         for (auto it = range.first; it != range.second; ++it) {
-            auto particle = it->second;
-            particles.push_back(particle);
+            // auto particle = it->second;
+            // particles.push_back(particle);
+            _particleCache.push_back(it->second);
         }
     }
-    return particles;
+    // return particles;
+    return _particleCache;
 }
 
 void Density::applyForce(const Second& deltaTime, Particle& p1) {
@@ -75,20 +101,53 @@ void Density::prepareForce(Particle& p1, Particle& p2) {
 
 kln::translator Density::_calculateForce(const Particle& p1) const {
     kln::translator force = {};
-    for (auto& particle : nearbyParticles(p1.position)) {
-        if (particle == &p1)
-            continue; // Skip self
+    // for (auto& particle : nearbyParticles(p1.position)) {
+    //     if (particle == &p1)
+    //         continue; // Skip self
 
-        float distance = (p1.position & particle->position).norm();
-        float factor = glm::smoothstep(
-            repulsionFactor, 0.f, inverseLerp(0.f, lookupRadius, distance)
-        );
-        auto direction = (p1.position - particle->position) / distance;
-        force += kln::translator(
-            factor, direction.x(), direction.y(), direction.z()
-        );
+    //     float distance = (p1.position & particle->position).norm();
+    //     float factor = glm::smoothstep(
+    //         repulsionFactor, 0.f, inverseLerp(0.f, lookupRadius, distance)
+    //     );
+    //     auto direction = (p1.position - particle->position) / distance;
+    //     force += kln::translator(
+    //         factor, direction.x(), direction.y(), direction.z()
+    //     );
+    // }
+
+    auto centerCell = _cell(p1.position);
+    auto halfSize = static_cast<int>(std::ceil(lookupRadius / gridCellSize));
+    float squaredRadius = lookupRadius * lookupRadius;
+
+    for (int x = -halfSize; x <= halfSize; ++x) {
+        for (int y = -halfSize; y <= halfSize; ++y) {
+            for (int z = -halfSize; z <= halfSize; ++z) {
+                auto cell = glm::ivec3(
+                    centerCell.x + x, centerCell.y + y, centerCell.z + z
+                );
+                auto range = _particleMap.equal_range(cell);
+
+                for (auto it = range.first; it != range.second; ++it) {
+                    Particle* particle = it->second;
+                    if (particle == &p1)
+                        continue; // Skip self
+
+                    float distance = (p1.position & particle->position).norm();
+                    if (distance <= lookupRadius) {
+                        float factor = glm::smoothstep(
+                            repulsionFactor, 0.f,
+                            inverseLerp(0.f, lookupRadius, distance)
+                        );
+                        auto direction =
+                            (p1.position - particle->position) / distance;
+                        force += kln::translator(
+                            factor, direction.x(), direction.y(), direction.z()
+                        );
+                    }
+                }
+            }
+        }
     }
-
     return force;
 }
 

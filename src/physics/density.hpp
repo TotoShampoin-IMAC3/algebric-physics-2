@@ -23,8 +23,8 @@ public:
     float gridCellSize = 1.f;    // Size of the grid cell for spatial hashing
 
     void setParticles(std::vector<Particle>&);
-    std::vector<glm::ivec3> nearbyCells(const kln::point& p1) const;
-    std::vector<Particle*> nearbyParticles(const kln::point& p1) const;
+    const std::vector<glm::ivec3>& nearbyCells(const kln::point& p1) const;
+    const std::vector<Particle*>& nearbyParticles(const kln::point& p1) const;
 
     void applyForce(const Second& deltaTime, Particle& p1) override;
     void applyForce(const Second& deltaTime, Particle& p1, Particle& p2)
@@ -44,6 +44,9 @@ public:
 private:
     using uint = unsigned int;
     std::unordered_multimap<glm::ivec3, Particle*> _particleMap {};
+
+    mutable std::vector<glm::ivec3> _cellCache;
+    mutable std::vector<Particle*> _particleCache;
 
     kln::translator _calculateForce(const Particle& p1) const;
 
