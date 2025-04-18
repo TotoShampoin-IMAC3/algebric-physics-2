@@ -1,10 +1,11 @@
 // DO NOT REMOVE
 // This file is there because glfwpp needs it for std::exchange
+#include <execution>
+
 #include "glm/gtc/type_ptr.hpp"
 #include "physics/density.hpp"
 #include "utils/shapes.hpp"
 #include <algorithm>
-#include <execution>
 #include <ranges>
 #include <thread>
 #include <utility>
@@ -83,7 +84,7 @@ int main(int argc, const char* argv[]) {
     ConstantForce gravity {kln::translator(gravityForce, 0, -1, 0)};
     Spring spring {KNOT, STIFF, VISCOSITY};
     Density density {
-        DENSITY, DENSITY_REPULSION, DENSITY_LOOKUP_RADIUS, DENSITY_GRID_SIZE
+        DENSITY_REPULSION, DENSITY_LOOKUP_RADIUS, DENSITY_GRID_SIZE
     };
 
     std::vector<glm::vec3> points;
@@ -298,6 +299,8 @@ int main(int argc, const char* argv[]) {
         if (ImGui::InputFloat("Gravity", &gravityForce)) {
             gravity.force = kln::translator(gravityForce, 0, -1, 0);
         }
+        ImGui::InputFloat("Avoid force", &density.repulsionFactor);
+        ImGui::InputFloat("Avoid radius", &density.lookupRadius);
         if (ImGui::BeginCombo("Anchors", to_string(anchors).c_str())) {
             for (const auto& anchor : drape_anchors) {
                 if (ImGui::Selectable(

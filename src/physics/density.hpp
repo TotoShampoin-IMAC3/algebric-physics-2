@@ -13,16 +13,11 @@
 class Density : public Link {
 public:
     Density() = default;
-    Density(
-        float targetDensity, float repulsionFactor, float lookupRadius,
-        float gridCellSize
-    )
-        : targetDensity(targetDensity),
-          repulsionFactor(repulsionFactor),
+    Density(float repulsionFactor, float lookupRadius, float gridCellSize)
+        : repulsionFactor(repulsionFactor),
           lookupRadius(lookupRadius),
           gridCellSize(gridCellSize) {}
 
-    float targetDensity = 1.f;   // Target density for the particles
     float repulsionFactor = 1.f; // Factor to control the repulsion force
     float lookupRadius = 1.f;    // Radius for looking up particles in the grid
     float gridCellSize = 1.f;    // Size of the grid cell for spatial hashing

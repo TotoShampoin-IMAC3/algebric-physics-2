@@ -1,7 +1,9 @@
 #include "density.hpp"
 #include "base.hpp"
+#include "glm/common.hpp"
 #include "klein/point.hpp"
 #include "klein/translator.hpp"
+#include "utils/math.hpp"
 
 void Density::setParticles(std::vector<Particle>& particles) {
     _particleMap.clear();
@@ -27,9 +29,11 @@ void Density::setParticles(std::vector<Particle>& particles) {
 }
 
 std::vector<glm::ivec3> Density::nearbyCells(const kln::point& p1) const {
-    std::vector<glm::ivec3> cells;
     auto cell = _cell(p1);
     auto halfSize = static_cast<int>(std::ceil(lookupRadius / gridCellSize));
+    auto size = halfSize * 2 + 1;
+    std::vector<glm::ivec3> cells;
+    cells.reserve(size * size * size);
     for (int x = -halfSize; x <= halfSize; ++x) {
         for (int y = -halfSize; y <= halfSize; ++y) {
             for (int z = -halfSize; z <= halfSize; ++z) {
@@ -47,10 +51,6 @@ std::vector<Particle*> Density::nearbyParticles(const kln::point& p1) const {
         auto range = _particleMap.equal_range(cell);
         for (auto it = range.first; it != range.second; ++it) {
             auto particle = it->second;
-            // // if (kln::distance(p1, particle->position) < lookupRadius) {
-            // if ((p1 & particle->position).norm() < lookupRadius) {
-            //     particles.push_back(particle);
-            // }
             particles.push_back(particle);
         }
     }
@@ -80,7 +80,13 @@ kln::translator Density::_calculateForce(const Particle& p1) const {
             continue; // Skip self
 
         float distance = (p1.position & particle->position).norm();
-        // TODO
+        float factor = glm::smoothstep(
+            repulsionFactor, 0.f, inverseLerp(0.f, lookupRadius, distance)
+        );
+        auto direction = (p1.position - particle->position) / distance;
+        force += kln::translator(
+            factor, direction.x(), direction.y(), direction.z()
+        );
     }
 
     return force;
