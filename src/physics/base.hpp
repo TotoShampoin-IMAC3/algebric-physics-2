@@ -1,6 +1,8 @@
 #pragma once
+
+#include "../utils/events.hpp"
 #include "Time.hpp"
-#include "klein/translator.hpp"
+
 #include <klein/klein.hpp>
 
 class Particle {
@@ -12,24 +14,14 @@ public:
     kln::translator force {};
     bool lock {false};
 
-    Particle(const kln::point& position = {}, float mass = 1.f)
-        : position(position),
-          mass(mass) {}
+    Event<void(kln::point oldPos, kln::point newPos)> onMove {};
 
-    void update(const Second& deltaTime) {
-        if (lock)
-            velocity = {};
-        position = (velocity * static_cast<float>(deltaTime))(position);
-    }
-    void applyForce(const kln::translator& _force, const Second& deltaTime) {
-        auto df = _force * static_cast<float>(deltaTime);
-        velocity = velocity * df;
-    }
-    void prepareForce(const kln::translator& _force) { force += _force; }
-    void updateForce(const Second& deltaTime) {
-        velocity += force * static_cast<float>(deltaTime);
-        force = {};
-    }
+    Particle(const kln::point& position = {}, float mass = 1.f);
+
+    void update(const Second& deltaTime);
+    void applyForce(const kln::translator& _force, const Second& deltaTime);
+    void prepareForce(const kln::translator& _force);
+    void updateForce(const Second& deltaTime);
 };
 
 class Link {

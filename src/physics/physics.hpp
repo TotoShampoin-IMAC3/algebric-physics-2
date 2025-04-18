@@ -5,4 +5,5 @@
 
 #include "Time.hpp"
 #include "base.hpp"
+#include "density.hpp"
 #include "links.hpp"
