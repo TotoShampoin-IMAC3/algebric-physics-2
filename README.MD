@@ -238,7 +238,7 @@ p_1 &= [ x_1, y_1, z_1 ] \\
 p_2 &= [ x_2, y_2, z_2 ] \\
 P_1 &= e_{032} x_1 + e_{013} y_1 + e_{021} z_1 + e_{123} \\
 P_2 &= e_{032} x_2 + e_{013} y_2 + e_{021} z_2 + e_{123} \\
-& || P_1 \vee P_2|| = \sqrt{\left< p_1 , p_2 \right>}
+& \lVert P_1 \vee P_2 \rVert = \sqrt{\left< p_1 , p_2 \right>}
 \end{aligned}
 $$
 
