@@ -36,26 +36,4 @@ else()
     target_link_libraries(${PROJECT_NAME} PUBLIC OpenGL)
 endif()
 
-if(MINGW)
-    # Get MinGW installation directory
-    get_filename_component(MINGW_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
-    
-    # List of required DLLs
-    set(MINGW_DLLS
-        "libstdc++-6.dll"
-        "libgcc_s_seh-1.dll"
-        "libwinpthread-1.dll"
-        "glfw3.dll"
-    )
-    
-    # Copy each DLL to output directory
-    foreach(DLL ${MINGW_DLLS})
-        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${MINGW_DIR}/${DLL}"
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>
-        )
-    endforeach()
-endif()
-
 Cool__target_copy_folder(${PROJECT_NAME} res)
