@@ -1,7 +1,7 @@
 # Spring-based Physics Simulation by means of 3D Projective Geometric Algebra
 
 Vidéo cliquable:  
-[![video](.misc/miniature.png)](https://youtu.be/neohDCyBGVM)
+[![video](.misc/miniature.png)](https://youtu.be/loqHa9pTmmY)
 
 1. [Explication](#explication)
 2. [Compilation](#compilation)
