@@ -53,3 +53,24 @@ public:
 private:
     kln::translator _calculateForce(Particle& p1);
 };
+
+class Wind : public Link {
+public:
+    kln::point frequency;
+    kln::point amplitude;
+
+    Wind(const kln::point& frequency, const kln::point& amplitude);
+
+    void applyForce(const Second& deltaTime, Particle& p1) override;
+    void applyForce(const Second& deltaTime, Particle& p1, Particle& p2)
+        override;
+
+    void prepareForce(Particle& p1) override;
+    void prepareForce(Particle& p1, Particle& p2) override;
+
+    void update(float deltaTime);
+
+private:
+    kln::translator _calculateForce(Particle& p1);
+    float _time;
+};

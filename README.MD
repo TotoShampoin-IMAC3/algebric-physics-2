@@ -45,6 +45,7 @@ cd out
 - Un drap, de taille N x N
 - Une figure plane, à force repoussante
 - La gravité
+- Le vent
 - Une force d'anti-collision entre les masses (self collision)
   - Une table de hachage spatial
 - Une caméra orbitale
@@ -169,9 +170,6 @@ spatial, et applique une force en fonction d'une certaine densité calculée à
 partir des masses alentours. Ce lien utilise l'événement `onMove` pour
 réorganiser les masses dans sa table de hachage.
 
-Il va sans dire que l'estimation des masses alentours à un point reste de loin
-l'opération la plus coûteuse de toute la simulation.
-
 ```cpp
 class Density : public Link {
 public:
@@ -260,6 +258,16 @@ j'utilise aussi intensément la parallélisation, c'est aussi pourquoi j'utilise
 l'instanciation pour dessiner les masses et les ressorts, et c'est également
 pourquoi la physique existe sur son propre thread.
 
+### La table de hachage
+
+L'estimation des masses alentours à un point reste de loin l'opération la plus
+coûteuse de toute la simulation. C'est au point que je ne peux pas mettre de
+rayon d'influence plus grand qu'une seule cellule, car au delà, le programme est
+drastiquement ralenti. Cela fait qu'à l'heure actuelle, avec les paramètres
+présents, je ne peux l'appliquer qu'aux masses directement voisines. Mais si
+elles sont suffisamment proches, à priori, on peut voir le drap se remettre bien
+droit.
+
 ### Le parallélisme
 
 Et un challenge qui vient fatalement avec le multi-threadé est la gestion de la
@@ -275,4 +283,5 @@ lors de l'implémentation du parallélisme.
 
 Je suis assez content de ce que j'ai produit, et surtout de ce que j'ai appris.
 Et même, si je compte poursuivre mes études vers un doctorat, je pense que je
-voudrais m'orienter dans le monde du rendu graphique, ou dans le monde de la simulation... Ou les deux.
+voudrais m'orienter dans le monde du rendu graphique, ou dans le monde de la
+simulation... Ou les deux.

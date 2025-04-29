@@ -4,6 +4,7 @@
 #include <execution>
 
 #include "glm/gtc/type_ptr.hpp"
+#include "klein/point.hpp"
 #include "physics/density.hpp"
 #include "utils/shapes.hpp"
 #include <algorithm>
@@ -68,13 +69,14 @@ int main(int argc, const char* argv[]) {
     bool isHolding = false;
     int nextCount = N;
     float gravityForce = GRAVITY;
-    DrapeAnchors anchors = DrapeAnchors::Corners;
+    DrapeAnchors anchors = DrapeAnchors::TwoCorners2;
+    DrapeDirection direction = DrapeDirection::XY;
 
     glm::vec3 pinchDirection = {0, 1, 0};
     float pinchForce = PINCH_FORCE;
     int pinchIndex = 0;
 
-    glm::vec4 groundFactors = {0, 1, 0, 5};
+    glm::vec4 groundFactors = {0, 1, 1, 15};
 
     unsigned int threads = std::thread::hardware_concurrency();
 
@@ -86,6 +88,10 @@ int main(int argc, const char* argv[]) {
         Spring spring {KNOT, STIFF, VISCOSITY};
         Density density {
             DENSITY_REPULSION, DENSITY_LOOKUP_RADIUS, DENSITY_GRID_SIZE
+        };
+        Wind wind {
+            WIND_FREQ,
+            WIND_AMP,
         };
 
         std::mutex mutex;
@@ -119,7 +125,9 @@ int main(int argc, const char* argv[]) {
     const auto reset = [&] {
         pd.particles.clear();
         pd.links.clear();
-        drape(pd.particles, pd.links, {nextCount, mass, KNOT, anchors});
+        drape(
+            pd.particles, pd.links, {nextCount, mass, KNOT, anchors, direction}
+        );
         points.resize(pd.particles.size());
         lines.resize(pd.links.size());
         pinchIndex = nextCount * (nextCount + 1) / 2;
@@ -192,6 +200,7 @@ int main(int argc, const char* argv[]) {
         auto& gravity = pd.gravity;
         auto& spring = pd.spring;
         auto& density = pd.density;
+        auto& wind = pd.wind;
 
         Profiler profiler;
         Time time;
@@ -223,9 +232,11 @@ int main(int argc, const char* argv[]) {
                 [&](auto& particle) {
                     gravity.prepareForce(particle);
                     ground.prepareForce(particle);
+                    wind.prepareForce(particle);
                     density.prepareForce(particle);
                 }
             );
+            wind.update(delta);
             profiler.tick();
             // Particles update
             std::for_each(
@@ -366,6 +377,14 @@ int main(int argc, const char* argv[]) {
         }
         ImGui::InputFloat("Avoid force", &pd.density.repulsionFactor);
         ImGui::InputFloat("Avoid radius", &pd.density.lookupRadius);
+        glm::vec3 freq = pointToVec(pd.wind.frequency);
+        glm::vec3 amp = pointToVec(pd.wind.amplitude);
+        if (ImGui::InputFloat3("Wind frequency", glm::value_ptr(freq))) {
+            pd.wind.frequency = vecToPoint(freq);
+        }
+        if (ImGui::InputFloat3("Wind amplitude", glm::value_ptr(amp))) {
+            pd.wind.amplitude = vecToPoint(amp);
+        }
         if (ImGui::BeginCombo("Anchors", to_string(anchors).c_str())) {
             for (const auto& anchor : drape_anchors) {
                 if (ImGui::Selectable(
@@ -446,7 +465,7 @@ int main(int argc, const char* argv[]) {
         if (ImGui::SliderFloat("e0", &groundFactors.x, -1.f, 1.f) ||
             ImGui::SliderFloat("e1", &groundFactors.y, -1.f, 1.f) ||
             ImGui::SliderFloat("e2", &groundFactors.z, -1.f, 1.f) ||
-            ImGui::SliderFloat("e3", &groundFactors.w, -5.f, 5.f)) {
+            ImGui::SliderFloat("e3", &groundFactors.w, -15.f, 15.f)) {
             pd.ground.wall = kln::plane(
                 groundFactors.x, groundFactors.y, groundFactors.z,
                 groundFactors.w

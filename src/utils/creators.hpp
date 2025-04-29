@@ -17,6 +17,15 @@ enum class DrapeAnchors {
     Corners,
     Edges,
     Center,
+    TwoCorners,
+    TwoCorners2,
+    OneEdge,
+    OneEdge2,
+};
+enum class DrapeDirection {
+    XZ,
+    XY,
+    ZY,
 };
 inline std::string to_string(DrapeAnchors anchors) {
     switch (anchors) {
@@ -24,14 +33,17 @@ inline std::string to_string(DrapeAnchors anchors) {
     case DrapeAnchors::Corners: return "Corners";
     case DrapeAnchors::Edges: return "Edges";
     case DrapeAnchors::Center: return "Center";
+    case DrapeAnchors::TwoCorners: return "Two Corners";
+    case DrapeAnchors::TwoCorners2: return "Two Corners 2";
+    case DrapeAnchors::OneEdge: return "One Edge";
+    case DrapeAnchors::OneEdge2: return "One Edge 2";
     }
     return "Unknown";
 }
 const auto drape_anchors = {
-    DrapeAnchors::None,
-    DrapeAnchors::Corners,
-    DrapeAnchors::Edges,
-    DrapeAnchors::Center,
+    DrapeAnchors::None,    DrapeAnchors::Corners,    DrapeAnchors::Edges,
+    DrapeAnchors::Center,  DrapeAnchors::TwoCorners, DrapeAnchors::TwoCorners2,
+    DrapeAnchors::OneEdge, DrapeAnchors::OneEdge2,
 };
 
 struct DrapeParameters {
@@ -39,6 +51,7 @@ struct DrapeParameters {
     float mass;
     float spread;
     DrapeAnchors anchors = DrapeAnchors::Corners;
+    DrapeDirection direction = DrapeDirection::XZ;
 };
 
 void drape(

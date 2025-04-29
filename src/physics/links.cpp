@@ -108,3 +108,41 @@ void Wall::prepareForce(Particle& p1, Particle& p2) {
     prepareForce(p1);
     prepareForce(p2);
 }
+
+//==============================================================================
+
+Wind::Wind(const kln::point& frequency, const kln::point& amplitude)
+    : frequency(frequency),
+      amplitude(amplitude),
+      _time(0) {}
+
+void Wind::applyForce(const Second& deltaTime, Particle& p1) {
+    auto force = _calculateForce(p1);
+    p1.applyForce(force, deltaTime);
+}
+void Wind::applyForce(const Second& deltaTime, Particle& p1, Particle& p2) {
+    applyForce(deltaTime, p1);
+    applyForce(deltaTime, p2);
+}
+
+void Wind::prepareForce(Particle& p1) {
+    auto force = _calculateForce(p1);
+    p1.prepareForce(force);
+}
+
+void Wind::prepareForce(Particle& p1, Particle& p2) {
+    prepareForce(p1);
+    prepareForce(p2);
+}
+
+void Wind::update(float deltaTime) {
+    _time += deltaTime;
+}
+
+kln::translator Wind::_calculateForce(Particle& p1) {
+    return pointToTranslator(kln::point(
+        amplitude.x() * std::cos(frequency.x() * M_PI * 2 * _time),
+        amplitude.y() * std::cos(frequency.y() * M_PI * 2 * _time),
+        amplitude.z() * std::cos(frequency.z() * M_PI * 2 * _time)
+    ));
+}
